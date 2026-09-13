@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cyberpulse-postgres
+    environment:
+      POSTGRES_USER: cyberpulseuser
+      POSTGRES_PASSWORD: JamesHarden1321
+      POSTGRES_DB: cyberpulsedb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyberpulseuser"]  # Use same username as POSTGRES_USER
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
