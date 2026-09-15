@@ -6,16 +6,13 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "cve")
+@Table(name = "cves")
 @Getter
 @Setter
 public class Cve {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "cve_id", nullable = false, unique = true)
+    @Column(name = "cve_id", nullable = false)
     private String cveId;
 
     @Column(columnDefinition = "TEXT")
@@ -23,11 +20,20 @@ public class Cve {
 
     private String severity;
 
+    @Column(name = "cvss_score")
+    private Double cvssScore;
+
+    @Column(name = "affected_vendor")
+    private String affectedVendor;
+
+    @Column(name = "affected_product")
+    private String affectedProduct;
+
     @Column(name = "published_date")
     private LocalDateTime publishedDate;
 
     private String source;
 
-    @Column(name = "last_updated")
-    private LocalDateTime lastUpdated;
+    @Column(name = "fetched_at")
+    private LocalDateTime fetchedAt;
 }
