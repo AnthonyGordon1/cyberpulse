@@ -6,7 +6,8 @@
       "Bash(brew uninstall *)",
       "Bash(brew link *)",
       "Bash(brew switch *)",
-      "Bash(java -version)"
+      "Bash(java -version)",
+      "Bash(mvn -q compile)"
     ]
   }
 }
