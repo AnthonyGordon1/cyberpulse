@@ -2,6 +2,7 @@ package com.anthonygordon.cyberpulse.client;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -15,12 +16,22 @@ public class HttpApiClient implements ApiClient {
 
     private final RestClient restClient;
 
+    //This constructor initializes the HttpApiClient 
+    // with a RestClient.Builder for testing purposes
+    @Autowired
     public HttpApiClient(RestClient.Builder builder) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5000); // Set connect timeout to 5 seconds
-        factory.setReadTimeout(25000); // Set read timeout to 25 seconds for large datasets
-        this.restClient = builder.requestFactory(factory).build();
+        this(builder.requestFactory(createRequestFactory()).build());
+    }
 
+    HttpApiClient(RestClient restClient) {
+        this.restClient = restClient;
+    }
+
+    private static SimpleClientHttpRequestFactory createRequestFactory() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000); // 5 seconds to connect
+        factory.setReadTimeout(25000); // 25 seconds for large datasets
+        return factory;
     }
 
     @Override
