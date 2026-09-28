@@ -1,6 +1,7 @@
 package com.anthonygordon.cyberpulse.client;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -17,8 +18,6 @@ class NvdClientIntegrationTest {
     @Test
     void fetchRecentCves_returnsNonBlankJson_fromLiveNvdApi() {
         String result = nvdClient.fetchRecentCves();
-
-        System.out.println("NVD response body: " + result);
-        assertFalse(result == null || result.isBlank());
+        assertTrue(result != null && result.contains("\"vulnerabilities\""));
     }
 }

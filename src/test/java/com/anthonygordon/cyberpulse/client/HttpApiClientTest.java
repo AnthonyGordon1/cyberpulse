@@ -51,6 +51,8 @@ class HttpApiClientTest {
         mockServer.verify();
     }
 
+    /* ---------- Edge cases ---------- */
+
     @Test
     void fetchData_returnsNull_whenResponseHasNoBody() {
         mockServer.expect(requestTo(URL)).andRespond(withSuccess());

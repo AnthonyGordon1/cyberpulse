@@ -8,6 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 /**
  * Spring Data JPA repository for {@link Cve} records.
  */
-public interface CveRepository extends JpaRepository<Cve, Long> {
+public interface CveRepository extends JpaRepository<Cve, String> {
 
 }
