@@ -1,10 +1,13 @@
 package com.anthonygordon.cyberpulse.client;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class HttpApiClient implements ApiClient {
@@ -26,18 +29,34 @@ public class HttpApiClient implements ApiClient {
         log.info("Fetching data from URL: {}", url);
 
         try {
-        
-        ResponseEntity<String> response = restClient.get()
-        .uri(url)
-        .retrieve()
-        .toEntity(String.class);
 
-        return response.getBody();
+            ResponseEntity<String> response = restClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .toEntity(String.class);
 
-        } 
-        
+            log.info("Received response with status: {}", response.getStatusCode());
+            return response.getBody();
+
+        }
+
+        catch (RestClientResponseException e) {
+            log.error("HTTP request to {} returned error status {}: {}",
+                    url, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException(
+                    "HTTP request to " + url + " failed with status " + e.getStatusCode()
+                            + ": " + e.getResponseBodyAsString(),
+                    e);
+
+        } catch (ResourceAccessException e) {
+            log.error("HTTP request to {} timed out or was unreachable", url, e);
+            throw new RuntimeException(
+                    "HTTP request to " + url + " timed out or was unreachable", e);
+        }
+
         catch (Exception e) {
             log.error("Failed to fetch data from URL: {}", url, e);
             throw new RuntimeException("Failed to fetch data from URL: " + url, e);
         }
+    }
 }
