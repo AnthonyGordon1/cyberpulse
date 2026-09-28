@@ -1,0 +1,35 @@
+{
+  "resultsPerPage": 1,
+  "totalResults": 1,
+  "format": "NVD_CVE",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2026-0001",
+        "sourceIdentifier": "cve@mitre.org",
+        "published": "2026-09-27T14:15:07.123",
+        "vulnStatus": "Received",
+        "descriptions": [
+          { "lang": "en", "value": "SQL injection in the login form allows authentication bypass." },
+          { "lang": "es", "value": "Inyección SQL en el formulario de inicio de sesión." }
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": { "version": "3.1", "baseScore": 9.8, "baseSeverity": "CRITICAL" },
+              "exploitabilityScore": 3.9
+            },
+            {
+              "source": "vendor@example.com",
+              "type": "Secondary",
+              "cvssData": { "version": "3.1", "baseScore": 8.1, "baseSeverity": "HIGH" }
+            }
+          ]
+        },
+        "references": [ { "url": "https://example.com/advisory" } ]
+      }
+    }
+  ]
+}
