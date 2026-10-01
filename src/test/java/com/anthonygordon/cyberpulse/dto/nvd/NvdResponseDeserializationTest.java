@@ -1,8 +1,4 @@
-package com.anthonygordon.cyberpulse.nvd;
-
-import com.anthonygordon.cyberpulse.dto.nvd.CveItem;
-import com.anthonygordon.cyberpulse.dto.nvd.CvssMetricV31;
-import com.anthonygordon.cyberpulse.dto.nvd.NvdResponse;
+package com.anthonygordon.cyberpulse.dto.nvd;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
