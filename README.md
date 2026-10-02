@@ -64,7 +64,20 @@ You'll need Java 21 and Docker.
 5. Read them back:
 ```bash
    curl http://localhost:8080/api/cves
+   
 ```
+
+### Scheduled sync
+
+The app pulls CVEs published in the last 24 hours from NVD on a timer. The first run starts 30 seconds after startup, then it repeats every hour. You can change this in `application.properties`:
+
+| Property | Default | What it does |
+|---|---|---|
+| `cyberpulse.sync.enabled` | `true` | Turns the scheduled sync on or off |
+| `cyberpulse.sync.initial-delay` | `PT30S` | Wait before the first run |
+| `cyberpulse.sync.interval` | `PT1H` | Wait between the end of one run and the start of the next |
+
+If a run fails (for example, NVD is down), the error is logged and the next run still happens. You can also trigger a sync by hand with `POST /api/cves/sync`.
 
 If Docker says port 5432 is taken, you probably have a local PostgreSQL running. I hit this myself. Run `lsof -i :5432` to find it and stop it first.
 
