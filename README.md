@@ -36,29 +36,32 @@ flowchart LR
 
 ## Tech stack
 
-Java 21, Spring Boot 4, Spring Data JPA with Hibernate, PostgreSQL 16, Docker Compose, JUnit 6, Mockito
-
 ## Running it locally
 
 You'll need Java 21 and Docker.
 
-1. Start PostgreSQL:
+1. Create your env file and set a password for `POSTGRES_PASSWORD`:
+```bash
+   cp .env.example .env
+```
+
+2. Start PostgreSQL:
 ```bash
    docker compose up -d
 ```
 
-2. Start the app:
+3. Start the app:
 ```bash
    ./mvnw spring-boot:run
 ```
 
-3. Pull the latest CVEs from NVD:
+4. Pull the latest CVEs from NVD:
 ```bash
    curl -X POST http://localhost:8080/api/cves/sync
 ```
    You'll get back how many CVEs were processed, like `{"saved":611}`.
 
-4. Read them back:
+5. Read them back:
 ```bash
    curl http://localhost:8080/api/cves
 ```
