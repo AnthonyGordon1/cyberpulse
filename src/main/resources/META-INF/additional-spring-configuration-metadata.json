@@ -1,0 +1,20 @@
+{"properties": [
+  {
+    "name": "cyberpulse.sync.enabled",
+    "type": "java.lang.Boolean",
+    "description": "Turns the scheduled NVD sync on or off.",
+    "defaultValue": true
+  },
+  {
+    "name": "cyberpulse.sync.initial-delay",
+    "type": "java.time.Duration",
+    "description": "How long to wait after startup before the first scheduled sync.",
+    "defaultValue": "PT30S"
+  },
+  {
+    "name": "cyberpulse.sync.interval",
+    "type": "java.time.Duration",
+    "description": "How long to wait after one sync finishes before the next one starts.",
+    "defaultValue": "PT1H"
+  }
+]}

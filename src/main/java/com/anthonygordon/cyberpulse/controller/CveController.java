@@ -1,6 +1,7 @@
 package com.anthonygordon.cyberpulse.controller;
 
 import java.util.List;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.anthonygordon.cyberpulse.dto.SyncResult;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 
 
+@RequestMapping("/api/cves")
 @RestController
 public class CveController {
     private final CveService cveService;
@@ -22,13 +24,14 @@ public class CveController {
 
     // Receive Request → CveController.getCves() — triggered automatically when GET
     // /api/cves is hit
-    @GetMapping("/api/cves")
+    @GetMapping
     public List<Cve> getCves() {
         // Ask Service Layer → CveController.getCves() calls CveService.getAllCves()
         return cveService.getAllCves();
     }
 
-    @PostMapping("/api/cves/sync")
+    
+    @PostMapping("/sync")
     public ResponseEntity<SyncResult> syncCves() {
         int syncedCount = cveService.syncRecentCves();
         return ResponseEntity.ok(new SyncResult(syncedCount));
