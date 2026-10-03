@@ -10,3 +10,9 @@ CREATE TABLE IF NOT EXISTS cves (
     source            VARCHAR(255),
     fetched_at        TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS sync_state (
+    source VARCHAR(255) PRIMARY KEY,
+    last_successful_sync TIMESTAMP NOT NULL
+    
+);
