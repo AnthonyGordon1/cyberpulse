@@ -1,5 +1,8 @@
 package com.anthonygordon.cyberpulse.service;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +16,7 @@ import com.anthonygordon.cyberpulse.dto.nvd.Vulnerability;
 import com.anthonygordon.cyberpulse.mapper.CveMapper;
 import com.anthonygordon.cyberpulse.model.Cve;
 import com.anthonygordon.cyberpulse.repository.CveRepository;
+import com.anthonygordon.cyberpulse.repository.SyncStateRepository;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -20,16 +24,24 @@ import tools.jackson.databind.json.JsonMapper;
 public class CveService {
     private static final Logger log = LoggerFactory.getLogger(CveService.class);
 
+    private static final String NVD_SOURCE = "NVD";
+    private static final Duration SYNC_OVERLAP = Duration.ofMinutes(5);
+    private static final Duration FIRST_RUN_BACKFILL = Duration.ofDays(7);
+
     private final CveRepository cveRepository;
     private final CveMapper cveMapper;
     private final NvdClient nvdClient;
     private final JsonMapper jsonMapper;
+    private final SyncStateRepository syncStateRepository;
 
-    public CveService(CveRepository cveRepository, CveMapper cveMapper, NvdClient nvdClient, JsonMapper jsonMapper) {
+    public CveService(CveRepository cveRepository, CveMapper cveMapper,
+            NvdClient nvdClient, JsonMapper jsonMapper,
+            SyncStateRepository syncStateRepository) {
         this.cveRepository = cveRepository;
         this.cveMapper = cveMapper;
         this.nvdClient = nvdClient;
         this.jsonMapper = jsonMapper;
+        this.syncStateRepository = syncStateRepository;
     }
 
     public List<Cve> getAllCves() {
@@ -39,8 +51,13 @@ public class CveService {
     public int syncRecentCves() {
         log.info("Starting sync of recent CVEs");
 
+        // Work out the window to ask NVD about
+        // End is captured before the call so the watermark can use it later
+        Instant end = Instant.now();
+        Instant start = findSyncStart(end);
+
         // 1. Fetch the raw JSON from NVD
-        String json = nvdClient.fetchRecentCves();
+        String json = nvdClient.fetchModifiedCves(start, end);
 
         // 2. If the JSON is null or blank, log a warning and return 0
         // (that's the null case your NvdClient and HttpApiClient tests flagged)
@@ -79,5 +96,13 @@ public class CveService {
         log.info("Saved {} CVEs to the database", cves.size());
 
         return cves.size();
+    }
+
+    // No watermark row means first run, so go back 7 days
+    // Otherwise start at the watermark minus the overlap (stored as UTC)
+    private Instant findSyncStart(Instant now) {
+        return syncStateRepository.findById(NVD_SOURCE)
+                .map(state -> state.getLastSuccessfulSync().toInstant(ZoneOffset.UTC).minus(SYNC_OVERLAP))
+                .orElse(now.minus(FIRST_RUN_BACKFILL));
     }
 }

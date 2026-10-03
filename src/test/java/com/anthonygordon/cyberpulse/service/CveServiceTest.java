@@ -7,7 +7,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +24,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.anthonygordon.cyberpulse.client.NvdClient;
 import com.anthonygordon.cyberpulse.mapper.CveMapper;
 import com.anthonygordon.cyberpulse.model.Cve;
+import com.anthonygordon.cyberpulse.model.SyncState;
 import com.anthonygordon.cyberpulse.repository.CveRepository;
+import com.anthonygordon.cyberpulse.repository.SyncStateRepository;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -31,14 +37,21 @@ class CveServiceTest {
     private NvdClient nvdClient;
     @Mock
     private CveRepository cveRepository;
+    @Mock
+    private SyncStateRepository syncStateRepository;
     @Captor
     private ArgumentCaptor<List<Cve>> savedCaptor;
+    @Captor
+    private ArgumentCaptor<Instant> startCaptor;
+    @Captor
+    private ArgumentCaptor<Instant> endCaptor;
 
     private CveService cveService;
 
     @BeforeEach
     void setUp() {
-        cveService = new CveService(cveRepository, new CveMapper(), nvdClient, JsonMapper.builder().build());
+        cveService = new CveService(cveRepository, new CveMapper(), nvdClient, JsonMapper.builder().build(),
+                syncStateRepository);
     }
 
     private static final String TWO_CVES = """
@@ -61,7 +74,7 @@ class CveServiceTest {
 
     @Test
     void syncRecentCves_savesAllCves_andReturnsCount() {
-        when(nvdClient.fetchRecentCves()).thenReturn(TWO_CVES);
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn(TWO_CVES);
 
         int saved = cveService.syncRecentCves();
 
@@ -71,11 +84,32 @@ class CveServiceTest {
         assertEquals("CVE-2026-0002", savedCaptor.getValue().get(1).getCveId());
     }
 
+    /* ---------- Sync window ---------- */
+
+    @Test
+    void syncRecentCves_asksForLastSevenDays_whenThereIsNoWatermark() {
+        cveService.syncRecentCves();
+
+        verify(nvdClient).fetchModifiedCves(startCaptor.capture(), endCaptor.capture());
+        assertEquals(Duration.ofDays(7), Duration.between(startCaptor.getValue(), endCaptor.getValue()));
+    }
+
+    @Test
+    void syncRecentCves_startsFiveMinutesBeforeWatermark_whenWatermarkExists() {
+        SyncState watermark = new SyncState("NVD", LocalDateTime.of(2026, 10, 2, 19, 0));
+        when(syncStateRepository.findById("NVD")).thenReturn(Optional.of(watermark));
+
+        cveService.syncRecentCves();
+
+        verify(nvdClient).fetchModifiedCves(startCaptor.capture(), endCaptor.capture());
+        assertEquals(Instant.parse("2026-10-02T18:55:00Z"), startCaptor.getValue());
+    }
+
     /* ---------- Edge cases ---------- */
 
     @Test
     void syncRecentCves_skipsUnmappableCve_andSavesTheRest() {
-        when(nvdClient.fetchRecentCves()).thenReturn(ONE_GOOD_ONE_BAD);
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn(ONE_GOOD_ONE_BAD);
 
         int saved = cveService.syncRecentCves();
 
@@ -86,7 +120,7 @@ class CveServiceTest {
 
     @Test
     void syncRecentCves_returnsZero_whenResponseIsEmpty() {
-        when(nvdClient.fetchRecentCves()).thenReturn("");
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn("");
 
         assertEquals(0, cveService.syncRecentCves());
         verify(cveRepository, never()).saveAll(any());
@@ -94,7 +128,7 @@ class CveServiceTest {
 
     @Test
     void syncRecentCves_returnsZero_whenNoVulnerabilities() {
-        when(nvdClient.fetchRecentCves()).thenReturn("{ \"vulnerabilities\": [] }");
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn("{ \"vulnerabilities\": [] }");
 
         assertEquals(0, cveService.syncRecentCves());
         verify(cveRepository, never()).saveAll(any());
@@ -104,7 +138,7 @@ class CveServiceTest {
 
     @Test
     void syncRecentCves_propagatesException_andSavesNothing_whenNvdFails() {
-        when(nvdClient.fetchRecentCves()).thenThrow(new RuntimeException("NVD down"));
+        when(nvdClient.fetchModifiedCves(any(), any())).thenThrow(new RuntimeException("NVD down"));
 
         assertThrows(RuntimeException.class, () -> cveService.syncRecentCves());
         verify(cveRepository, never()).saveAll(any());

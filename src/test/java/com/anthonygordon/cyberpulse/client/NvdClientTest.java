@@ -4,16 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.regex.Pattern;
+import java.time.Instant;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,9 +23,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 @ExtendWith(MockitoExtension.class)
 class NvdClientTest {
 
-    private static final Pattern NVD_DATE_PATTERN = Pattern
-            .compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}");
-    private static final DateTimeFormatter NVD_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
+    private static final Instant START = Instant.parse("2026-10-02T18:55:00Z");
+    private static final Instant END = Instant.parse("2026-10-02T20:00:00Z");
 
     @Mock
     private ApiClient apiClient;
@@ -43,11 +38,11 @@ class NvdClientTest {
     /* ---------- Happy path ---------- */
 
     @Test
-    void fetchRecentCves_returnsBody_onSuccess() {
+    void fetchModifiedCves_returnsBody_onSuccess() {
         String expectedBody = "{\"vulnerabilities\":[]}";
         when(apiClient.fetchData(anyString())).thenReturn(expectedBody);
 
-        String result = nvdClient.fetchRecentCves();
+        String result = nvdClient.fetchModifiedCves(START, END);
 
         assertEquals(expectedBody, result);
     }
@@ -55,57 +50,49 @@ class NvdClientTest {
     /* ---------- Request building ---------- */
 
     @Test
-    void fetchRecentCves_sendsCorrectlyFormattedDateQueryParams() {
+    void fetchModifiedCves_sendsStartAndEndAsUtcLastModParams() {
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
 
-        nvdClient.fetchRecentCves();
+        nvdClient.fetchModifiedCves(START, END);
 
         verify(apiClient).fetchData(urlCaptor.capture());
         MultiValueMap<String, String> params = UriComponentsBuilder
                 .fromUriString(urlCaptor.getValue()).build().getQueryParams();
 
-        String pubStartDate = params.getFirst("pubStartDate");
-        String pubEndDate = params.getFirst("pubEndDate");
-
-        assertTrue(pubStartDate != null && NVD_DATE_PATTERN.matcher(pubStartDate).matches());
-        assertTrue(pubEndDate != null && NVD_DATE_PATTERN.matcher(pubEndDate).matches());
-
-        LocalDateTime start = LocalDateTime.parse(pubStartDate, NVD_DATE_FORMAT);
-        LocalDateTime end = LocalDateTime.parse(pubEndDate, NVD_DATE_FORMAT);
-        long minutesBetween = Duration.between(start, end).toMinutes();
-
-        assertTrue(Math.abs(minutesBetween - 24 * 60) < 2);
+        assertEquals("2026-10-02T18:55:00.000", params.getFirst("lastModStartDate"));
+        assertEquals("2026-10-02T20:00:00.000", params.getFirst("lastModEndDate"));
+        assertNull(params.getFirst("pubStartDate"));
     }
 
     /* ---------- Edge cases ---------- */
 
     @Test
-    void fetchRecentCves_returnsNull_whenApiClientReturnsNull() {
+    void fetchModifiedCves_returnsNull_whenApiClientReturnsNull() {
         when(apiClient.fetchData(anyString())).thenReturn(null);
 
-        String result = nvdClient.fetchRecentCves();
+        String result = nvdClient.fetchModifiedCves(START, END);
 
         assertNull(result);
     }
 
-    /* ---------- Failure handling ---------- */    
+    /* ---------- Failure handling ---------- */
 
     @Test
-    void fetchRecentCves_propagatesException_whenApiClientFails() {
+    void fetchModifiedCves_propagatesException_whenApiClientFails() {
         RuntimeException apiFailure = new RuntimeException("NVD down");
         when(apiClient.fetchData(anyString())).thenThrow(apiFailure);
 
         RuntimeException thrown = assertThrows(RuntimeException.class,
-                () -> nvdClient.fetchRecentCves());
+                () -> nvdClient.fetchModifiedCves(START, END));
 
         assertSame(apiFailure, thrown);
     }
 
     @Test
-    void fetchRecentCves_doesNotRetry_whenApiClientFails() {
+    void fetchModifiedCves_doesNotRetry_whenApiClientFails() {
         when(apiClient.fetchData(anyString())).thenThrow(new RuntimeException("NVD down"));
 
-        assertThrows(RuntimeException.class, () -> nvdClient.fetchRecentCves());
+        assertThrows(RuntimeException.class, () -> nvdClient.fetchModifiedCves(START, END));
 
         verify(apiClient, times(1)).fetchData(anyString());
     }

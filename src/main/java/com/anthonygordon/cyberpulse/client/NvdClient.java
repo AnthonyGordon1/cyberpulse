@@ -1,6 +1,5 @@
 package com.anthonygordon.cyberpulse.client;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -10,7 +9,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component 
+@Component
 public class NvdClient {
 
         private static final Logger log = LoggerFactory.getLogger(NvdClient.class);
@@ -25,20 +24,20 @@ public class NvdClient {
                 this.apiClient = apiClient;
         }
 
-        public String fetchRecentCves() {
-                Instant now = Instant.now();
-                Instant twentyFourHoursAgo = now.minus(Duration.ofHours(24));
+        // Asks NVD for CVEs changed between start and end (new CVEs count as changed).
+        // The caller picks the window, so this class never touches the database.
+        public String fetchModifiedCves(Instant start, Instant end) {
+                // NVD wants UTC timestamps like 2026-10-02T19:00:00.000
+                String lastModStartDate = NVD_DATE_FORMAT.format(start);
+                String lastModEndDate = NVD_DATE_FORMAT.format(end);
 
-                String pubStartDate = NVD_DATE_FORMAT.format(twentyFourHoursAgo);
-                String pubEndDate = NVD_DATE_FORMAT.format(now);
-
+                // NVD needs both dates together, and the range can't pass 120 days
                 UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(NVD_BASE_URL);
-                builder.queryParam("pubStartDate", pubStartDate)
-                                .queryParam("pubEndDate", pubEndDate);
+                builder.queryParam("lastModStartDate", lastModStartDate)
+                                .queryParam("lastModEndDate", lastModEndDate);
                 String url = builder.toUriString();
 
-                log.info("Fetching NVD CVEs published between {} and {}", pubStartDate, pubEndDate);
-                String response = apiClient.fetchData(url);
-                return response;
+                log.info("Fetching NVD CVEs modified between {} and {}", lastModStartDate, lastModEndDate);
+                return apiClient.fetchData(url);
         }
 }
