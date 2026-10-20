@@ -2,7 +2,7 @@
 
 I'm building a threat intelligence dashboard one phase at a time. Right now it pulls newly published CVEs from the NVD API, cleans them up, and stores them in PostgreSQL behind a REST API.
 
-**Status:** Phase 1 of 9 in progress. NVD ingestion works; scheduled polling is next. The rest is in the [roadmap](#roadmap).
+**Status:** Phase 1 of 9 in progress. NVD ingestion works; scheduled polling is next.
 
 ## What it does today
 
