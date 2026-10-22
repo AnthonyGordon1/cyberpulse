@@ -82,7 +82,7 @@ class CveServiceTest {
     void syncRecentCves_savesAllCves_andReturnsCount() {
         when(nvdClient.fetchModifiedCves(any(), any(), anyInt())).thenReturn(TWO_CVES);
 
-        int saved = cveService.syncRecentCves();
+        int saved = cveService.syncRecentCves().saved();
 
         assertEquals(2, saved);
         verify(cveRepository).saveAll(savedCaptor.capture());
@@ -119,7 +119,7 @@ class CveServiceTest {
     void syncRecentCves_skipsUnmappableCve_andSavesTheRest() {
         when(nvdClient.fetchModifiedCves(any(), any(), anyInt())).thenReturn(ONE_GOOD_ONE_BAD);
 
-        int saved = cveService.syncRecentCves();
+        int saved = cveService.syncRecentCves().saved();
 
         assertEquals(1, saved);
         verify(cveRepository).saveAll(savedCaptor.capture());
@@ -138,7 +138,7 @@ class CveServiceTest {
     void syncRecentCves_returnsZero_whenNoVulnerabilities() {
         when(nvdClient.fetchModifiedCves(any(), any(), anyInt())).thenReturn("{ \"vulnerabilities\": [] }");
 
-        assertEquals(0, cveService.syncRecentCves());
+        assertEquals(0, cveService.syncRecentCves().saved());
         verify(cveRepository, never()).saveAll(any());
     }
 
@@ -216,7 +216,7 @@ class CveServiceTest {
         when(nvdClient.fetchModifiedCves(any(), any(), eq(0))).thenReturn(page(3, "CVE-2026-0001", "CVE-2026-0002"));
         when(nvdClient.fetchModifiedCves(any(), any(), eq(2))).thenReturn(page(3, "CVE-2026-0003"));
 
-        int saved = cveService.syncRecentCves();
+        int saved = cveService.syncRecentCves().saved();
 
         assertEquals(3, saved);
         verify(cveRepository).saveAll(savedCaptor.capture());
@@ -240,7 +240,7 @@ class CveServiceTest {
         when(nvdClient.fetchModifiedCves(any(), any(), eq(0))).thenReturn(page(5, "CVE-2026-0001", "CVE-2026-0002"));
         when(nvdClient.fetchModifiedCves(any(), any(), eq(2))).thenReturn(page(5));
 
-        int saved = cveService.syncRecentCves();
+        int saved = cveService.syncRecentCves().saved();
 
         assertEquals(2, saved);
         verify(syncStateRepository).save(any());
@@ -258,5 +258,33 @@ class CveServiceTest {
 
         verify(nvdClient).fetchModifiedCves(startCaptor.capture(), endCaptor.capture(), eq(0));
         assertEquals(Duration.ofDays(119), Duration.between(startCaptor.getValue(), endCaptor.getValue()));
+    }
+
+    @Test
+    void syncRecentCves_countsNewAndUpdated_whenSomeCvesAlreadyExist() throws Exception {
+        when(nvdClient.fetchModifiedCves(any(), any(), anyInt()))
+                .thenReturn(page(2, "CVE-2026-0001", "CVE-2026-0002"));
+        Cve existing = new Cve();
+        existing.setCveId("CVE-2026-0001");
+        when(cveRepository.findAllById(any())).thenReturn(List.of(existing));
+
+        var result = cveService.syncRecentCves();
+
+        assertEquals(2, result.saved());
+        assertEquals(1, result.created());
+        assertEquals(1, result.updated());
+    }
+
+    @Test
+    void syncRecentCves_countsAllAsNew_whenNothingExistsYet() throws Exception {
+        when(nvdClient.fetchModifiedCves(any(), any(), anyInt()))
+                .thenReturn(page(2, "CVE-2026-0001", "CVE-2026-0002"));
+        when(cveRepository.findAllById(any())).thenReturn(List.of());
+
+        var result = cveService.syncRecentCves();
+
+        assertEquals(2, result.saved());
+        assertEquals(2, result.created());
+        assertEquals(0, result.updated());
     }
 }

@@ -1,5 +1,7 @@
 package com.anthonygordon.cyberpulse.scheduler;
 
+import com.anthonygordon.cyberpulse.dto.SyncResult;
+
 import com.anthonygordon.cyberpulse.service.CveService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +25,7 @@ class CveSyncSchedulerTest {
 
     @Test
     void runScheduledSync_callsService() {
-        when(cveService.syncRecentCves()).thenReturn(5);
+        when(cveService.syncRecentCves()).thenReturn(new SyncResult(5, 5, 0));
 
         scheduler.runScheduledSync();
 
@@ -43,7 +45,7 @@ class CveSyncSchedulerTest {
     void runScheduledSync_canRunAgain_afterFailure() {
         when(cveService.syncRecentCves())
                 .thenThrow(new RuntimeException("NVD unavailable"))
-                .thenReturn(3);
+                .thenReturn(new SyncResult(3, 3, 0));
 
         scheduler.runScheduledSync();
         scheduler.runScheduledSync();

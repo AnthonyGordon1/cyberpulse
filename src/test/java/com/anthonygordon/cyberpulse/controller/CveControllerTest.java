@@ -1,5 +1,7 @@
 package com.anthonygordon.cyberpulse.controller;
 
+import com.anthonygordon.cyberpulse.dto.SyncResult;
+
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,7 +40,7 @@ class CveControllerTest {
 
     @Test
     void syncCves_returns200WithSavedCount() throws Exception {
-        when(cveService.syncRecentCves()).thenReturn(611);
+        when(cveService.syncRecentCves()).thenReturn(new SyncResult(611, 600, 11));
 
         mockMvc.perform(post("/api/cves/sync"))
                 .andExpect(status().isOk())
