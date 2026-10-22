@@ -2,6 +2,7 @@ package com.anthonygordon.cyberpulse.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,7 @@ import com.anthonygordon.cyberpulse.dto.nvd.NvdResponse;
 import com.anthonygordon.cyberpulse.dto.nvd.Vulnerability;
 import com.anthonygordon.cyberpulse.mapper.CveMapper;
 import com.anthonygordon.cyberpulse.model.Cve;
+import com.anthonygordon.cyberpulse.model.SyncState;
 import com.anthonygordon.cyberpulse.repository.CveRepository;
 import com.anthonygordon.cyberpulse.repository.SyncStateRepository;
 
@@ -34,8 +36,7 @@ public class CveService {
     private final JsonMapper jsonMapper;
     private final SyncStateRepository syncStateRepository;
 
-    public CveService(CveRepository cveRepository, CveMapper cveMapper,
-            NvdClient nvdClient, JsonMapper jsonMapper,
+    public CveService(CveRepository cveRepository, CveMapper cveMapper, NvdClient nvdClient, JsonMapper jsonMapper,
             SyncStateRepository syncStateRepository) {
         this.cveRepository = cveRepository;
         this.cveMapper = cveMapper;
@@ -61,6 +62,7 @@ public class CveService {
 
         // 2. If the JSON is null or blank, log a warning and return 0
         // (that's the null case your NvdClient and HttpApiClient tests flagged)
+        // The watermark stays put here, so the next run retries this window
 
         if (json == null || json.isBlank()) {
             // Log a warning and return 0
@@ -74,6 +76,8 @@ public class CveService {
         // 4. If there are no vulnerabilities, return 0
         if (nvdResponse == null || nvdResponse.vulnerabilities() == null || nvdResponse.vulnerabilities().isEmpty()) {
             log.info("No vulnerabilities found in the NVD response");
+            // The call worked, there was just nothing new, so move the watermark
+            saveWatermark(end);
             return 0;
         }
 
@@ -92,6 +96,10 @@ public class CveService {
         // 6. Save the whole list to the database
         cveRepository.saveAll(cves);
 
+        // Data is saved, so now it is safe to move the watermark
+        // If the app dies before this line, the next run just repeats the window
+        saveWatermark(end);
+
         // 7. Log how many were saved, and return that number
         log.info("Saved {} CVEs to the database", cves.size());
 
@@ -104,5 +112,11 @@ public class CveService {
         return syncStateRepository.findById(NVD_SOURCE)
                 .map(state -> state.getLastSuccessfulSync().toInstant(ZoneOffset.UTC).minus(SYNC_OVERLAP))
                 .orElse(now.minus(FIRST_RUN_BACKFILL));
+    }
+
+    // Stores the end of this run's window as the new watermark (UTC, no zone kept)
+    private void saveWatermark(Instant end) {
+        LocalDateTime lastSync = LocalDateTime.ofInstant(end, ZoneOffset.UTC);
+        syncStateRepository.save(new SyncState(NVD_SOURCE, lastSync));
     }
 }
