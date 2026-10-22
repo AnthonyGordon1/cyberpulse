@@ -245,4 +245,18 @@ class CveServiceTest {
         assertEquals(2, saved);
         verify(syncStateRepository).save(any());
     }
+
+    /* ---------- Window clamp ---------- */
+
+    @Test
+    void syncRecentCves_clampsWindowToNvdLimit_whenWatermarkIsTooOld() {
+        SyncState oldWatermark = new SyncState("NVD", LocalDateTime.now(ZoneOffset.UTC).minusDays(200));
+        when(syncStateRepository.findById("NVD")).thenReturn(Optional.of(oldWatermark));
+        when(nvdClient.fetchModifiedCves(any(), any(), anyInt())).thenReturn("{ \"vulnerabilities\": [] }");
+
+        cveService.syncRecentCves();
+
+        verify(nvdClient).fetchModifiedCves(startCaptor.capture(), endCaptor.capture(), eq(0));
+        assertEquals(Duration.ofDays(119), Duration.between(startCaptor.getValue(), endCaptor.getValue()));
+    }
 }
