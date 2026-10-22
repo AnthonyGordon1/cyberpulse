@@ -3,6 +3,8 @@ package com.anthonygordon.cyberpulse.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +12,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -142,5 +146,50 @@ class CveServiceTest {
 
         assertThrows(RuntimeException.class, () -> cveService.syncRecentCves());
         verify(cveRepository, never()).saveAll(any());
+    }
+
+    /* ---------- Watermark ---------- */
+
+    @Test
+    void syncRecentCves_doesNotSaveWatermark_whenNvdFails() {
+        when(nvdClient.fetchModifiedCves(any(), any())).thenThrow(new RuntimeException("NVD down"));
+
+        assertThrows(RuntimeException.class, () -> cveService.syncRecentCves());
+
+        verify(syncStateRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRecentCves_doesNotSaveWatermark_whenResponseIsBlank() {
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn("");
+
+        cveService.syncRecentCves();
+
+        verify(syncStateRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRecentCves_doesNotSaveWatermark_whenSavingCvesFails() {
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn(TWO_CVES);
+        doThrow(new RuntimeException("DB down")).when(cveRepository).saveAll(any());
+
+        assertThrows(RuntimeException.class, () -> cveService.syncRecentCves());
+
+        verify(syncStateRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRecentCves_savesWatermarkAtWindowEnd_afterCvesAreSaved() {
+        when(nvdClient.fetchModifiedCves(any(), any())).thenReturn(TWO_CVES);
+
+        cveService.syncRecentCves();
+
+        verify(nvdClient).fetchModifiedCves(startCaptor.capture(), endCaptor.capture());
+        ArgumentCaptor<SyncState> stateCaptor = ArgumentCaptor.forClass(SyncState.class);
+        InOrder order = inOrder(cveRepository, syncStateRepository);
+        order.verify(cveRepository).saveAll(any());
+        order.verify(syncStateRepository).save(stateCaptor.capture());
+        assertEquals(LocalDateTime.ofInstant(endCaptor.getValue(), ZoneOffset.UTC),
+                stateCaptor.getValue().getLastSuccessfulSync());
     }
 }
