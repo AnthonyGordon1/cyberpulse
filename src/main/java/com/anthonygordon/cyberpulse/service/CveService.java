@@ -29,6 +29,7 @@ public class CveService {
     private static final String NVD_SOURCE = "NVD";
     private static final Duration SYNC_OVERLAP = Duration.ofMinutes(5);
     private static final Duration FIRST_RUN_BACKFILL = Duration.ofDays(7);
+    private static final Duration MAX_WINDOW = Duration.ofDays(119); // NVD rejects ranges over 120 days
 
     private final CveRepository cveRepository;
     private final CveMapper cveMapper;
@@ -116,9 +117,17 @@ public class CveService {
     // No watermark row means first run, so go back 7 days
     // Otherwise start at the watermark minus the overlap (stored as UTC)
     private Instant findSyncStart(Instant now) {
-        return syncStateRepository.findById(NVD_SOURCE)
+        Instant start = syncStateRepository.findById(NVD_SOURCE)
                 .map(state -> state.getLastSuccessfulSync().toInstant(ZoneOffset.UTC).minus(SYNC_OVERLAP))
                 .orElse(now.minus(FIRST_RUN_BACKFILL));
+
+        // NVD rejects last-modified ranges longer than 120 days
+        Instant earliest = now.minus(MAX_WINDOW);
+        if (start.isBefore(earliest)) {
+            log.warn("Watermark is older than the NVD limit, only syncing the last {} days", MAX_WINDOW.toDays());
+            return earliest;
+        }
+        return start;
     }
 
     // Stores the end of this run's window as the new watermark (UTC, no zone kept)
