@@ -1,0 +1,18 @@
+#!/bin/sh
+# Enforces: type(scope): imperative subject
+subject=$(head -n 1 "$1")
+
+# Let merges, reverts and autosquash commits through
+case "$subject" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *) exit 0 ;;
+esac
+
+pattern='^(feat|fix|test|docs|chore|refactor)\((sync|scheduler|api|db|config|readme|build)\): [a-z0-9].*[^.]$'
+
+if ! printf '%s' "$subject" | grep -Eq "$pattern" || [ "${#subject}" -gt 72 ]; then
+  echo "Commit message rejected. Expected: type(scope): lowercase subject, max 72 chars, no trailing period"
+  echo "  types:  feat fix test docs chore refactor"
+  echo "  scopes: sync scheduler api db config readme build"
+  echo "  got:    $subject"
+  exit 1
+fi
