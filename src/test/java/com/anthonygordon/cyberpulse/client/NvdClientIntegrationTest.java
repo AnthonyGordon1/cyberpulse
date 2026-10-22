@@ -22,7 +22,7 @@ class NvdClientIntegrationTest {
         Instant end = Instant.now();
         Instant start = end.minus(Duration.ofHours(24));
 
-        String result = nvdClient.fetchModifiedCves(start, end);
+        String result = nvdClient.fetchModifiedCves(start, end, 0);
         assertTrue(result != null && result.contains("\"vulnerabilities\""));
     }
 }

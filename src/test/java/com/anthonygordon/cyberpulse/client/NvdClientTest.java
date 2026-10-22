@@ -42,7 +42,7 @@ class NvdClientTest {
         String expectedBody = "{\"vulnerabilities\":[]}";
         when(apiClient.fetchData(anyString())).thenReturn(expectedBody);
 
-        String result = nvdClient.fetchModifiedCves(START, END);
+        String result = nvdClient.fetchModifiedCves(START, END, 0);
 
         assertEquals(expectedBody, result);
     }
@@ -53,7 +53,7 @@ class NvdClientTest {
     void fetchModifiedCves_sendsStartAndEndAsUtcLastModParams() {
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
 
-        nvdClient.fetchModifiedCves(START, END);
+        nvdClient.fetchModifiedCves(START, END, 0);
 
         verify(apiClient).fetchData(urlCaptor.capture());
         MultiValueMap<String, String> params = UriComponentsBuilder
@@ -70,7 +70,7 @@ class NvdClientTest {
     void fetchModifiedCves_returnsNull_whenApiClientReturnsNull() {
         when(apiClient.fetchData(anyString())).thenReturn(null);
 
-        String result = nvdClient.fetchModifiedCves(START, END);
+        String result = nvdClient.fetchModifiedCves(START, END, 0);
 
         assertNull(result);
     }
@@ -83,7 +83,7 @@ class NvdClientTest {
         when(apiClient.fetchData(anyString())).thenThrow(apiFailure);
 
         RuntimeException thrown = assertThrows(RuntimeException.class,
-                () -> nvdClient.fetchModifiedCves(START, END));
+                () -> nvdClient.fetchModifiedCves(START, END, 0));
 
         assertSame(apiFailure, thrown);
     }
@@ -92,7 +92,7 @@ class NvdClientTest {
     void fetchModifiedCves_doesNotRetry_whenApiClientFails() {
         when(apiClient.fetchData(anyString())).thenThrow(new RuntimeException("NVD down"));
 
-        assertThrows(RuntimeException.class, () -> nvdClient.fetchModifiedCves(START, END));
+        assertThrows(RuntimeException.class, () -> nvdClient.fetchModifiedCves(START, END, 0));
 
         verify(apiClient, times(1)).fetchData(anyString());
     }

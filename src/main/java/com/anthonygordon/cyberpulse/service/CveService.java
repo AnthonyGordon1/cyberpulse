@@ -53,54 +53,61 @@ public class CveService {
         log.info("Starting sync of recent CVEs");
 
         // Work out the window to ask NVD about
-        // End is captured before the call so the watermark can use it later
+        // End is captured before the first call so the watermark can use it later
         Instant end = Instant.now();
         Instant start = findSyncStart(end);
 
-        // 1. Fetch the raw JSON from NVD
-        String json = nvdClient.fetchModifiedCves(start, end);
-
-        // 2. If the JSON is null or blank, log a warning and return 0
-        // (that's the null case your NvdClient and HttpApiClient tests flagged)
-        // The watermark stays put here, so the next run retries this window
-
-        if (json == null || json.isBlank()) {
-            // Log a warning and return 0
-            log.warn("NVD returned an empty response, nothing to sync");
-            return 0;
-        }
-
-        // 3. Parse the JSON into an NvdResponse
-        NvdResponse nvdResponse = jsonMapper.readValue(json, NvdResponse.class);
-
-        // 4. If there are no vulnerabilities, return 0
-        if (nvdResponse == null || nvdResponse.vulnerabilities() == null || nvdResponse.vulnerabilities().isEmpty()) {
-            log.info("No vulnerabilities found in the NVD response");
-            // The call worked, there was just nothing new, so move the watermark
-            saveWatermark(end);
-            return 0;
-        }
-
-        // 5. Create an empty List<Cve>
-        // Loop over each vulnerability:
-        // map its cve() to a Cve entity and add it to the list
+        // Collect every page of the window before saving anything
         List<Cve> cves = new ArrayList<>();
-        for (Vulnerability vulnerability : nvdResponse.vulnerabilities()) {
-            try {
-                cves.add(cveMapper.toEntity(vulnerability.cve()));
-            } catch (IllegalArgumentException e) {
-                log.warn("Skipping CVE that could not be mapped: {}", e.getMessage());
+        int startIndex = 0;
+        int totalResults = 0;
+
+        do {
+            // 1. Fetch one page of raw JSON from NVD
+            String json = nvdClient.fetchModifiedCves(start, end, startIndex);
+
+            // 2. A blank page means we did not get the whole window
+            // Throw so the watermark stays put and the next run retries it
+            if (json == null || json.isBlank()) {
+                throw new IllegalStateException("NVD returned an empty response at startIndex " + startIndex);
             }
+
+            // 3. Parse the JSON into an NvdResponse
+            NvdResponse page = jsonMapper.readValue(json, NvdResponse.class);
+            if (page == null) {
+                break;
+            }
+            totalResults = page.totalResults() == null ? 0 : page.totalResults();
+
+            // 4. No vulnerabilities on this page: stop instead of looping forever
+            List<Vulnerability> vulnerabilities = page.vulnerabilities();
+            if (vulnerabilities == null || vulnerabilities.isEmpty()) {
+                break;
+            }
+
+            // 5. Map each vulnerability's cve() to a Cve entity
+            for (Vulnerability vulnerability : vulnerabilities) {
+                try {
+                    cves.add(cveMapper.toEntity(vulnerability.cve()));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Skipping CVE that could not be mapped: {}", e.getMessage());
+                }
+            }
+
+            // 6. Move to the next page
+            startIndex += vulnerabilities.size();
+        } while (startIndex < totalResults);
+
+        // 7. Save everything we collected
+        if (!cves.isEmpty()) {
+            cveRepository.saveAll(cves);
         }
 
-        // 6. Save the whole list to the database
-        cveRepository.saveAll(cves);
-
-        // Data is saved, so now it is safe to move the watermark
-        // If the app dies before this line, the next run just repeats the window
+        // Every page was fetched and saved, so now it is safe to move the watermark
+        // If anything above threw, we never get here and the next run repeats the
+        // window
         saveWatermark(end);
 
-        // 7. Log how many were saved, and return that number
         log.info("Saved {} CVEs to the database", cves.size());
 
         return cves.size();
