@@ -21,8 +21,9 @@ public class CveSyncScheduler {
     @Scheduled(initialDelayString = "${cyberpulse.sync.initial-delay}", fixedDelayString = "${cyberpulse.sync.interval}")
     public void runScheduledSync() {
         try {
-            int saved = cveService.syncRecentCves();
-            log.info("Scheduled CVE sync finished, saved {} CVEs", saved);
+            var result = cveService.syncRecentCves();
+            log.info("Scheduled CVE sync finished, saved {} CVEs ({} new, {} updated)",
+                    result.saved(), result.created(), result.updated());
         } catch (Exception e) {
             log.error("Scheduled CVE sync failed, will retry on next run", e);
         }

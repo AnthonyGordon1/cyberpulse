@@ -33,8 +33,7 @@ public class CveController {
     
     @PostMapping("/sync")
     public ResponseEntity<SyncResult> syncCves() {
-        int syncedCount = cveService.syncRecentCves();
-        return ResponseEntity.ok(new SyncResult(syncedCount));
+        return ResponseEntity.ok(cveService.syncRecentCves());
     }
     
 }

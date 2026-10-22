@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import com.anthonygordon.cyberpulse.dto.SyncResult;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -50,7 +51,7 @@ public class CveService {
         return cveRepository.findAll();
     }
 
-    public int syncRecentCves() {
+    public SyncResult syncRecentCves() {
         log.info("Starting sync of recent CVEs");
 
         // Work out the window to ask NVD about
@@ -100,7 +101,12 @@ public class CveService {
         } while (startIndex < totalResults);
 
         // 7. Save everything we collected
+        int created = 0;
+        int updated = 0;
         if (!cves.isEmpty()) {
+            List<String> ids = cves.stream().map(Cve::getCveId).distinct().toList();
+            updated = cveRepository.findAllById(ids).size();
+            created = ids.size() - updated;
             cveRepository.saveAll(cves);
         }
 
@@ -109,9 +115,9 @@ public class CveService {
         // window
         saveWatermark(end);
 
-        log.info("Saved {} CVEs to the database", cves.size());
+        log.info("Saved {} CVEs to the database ({} new, {} updated)", created + updated, created, updated);
 
-        return cves.size();
+        return new SyncResult(created + updated, created, updated);
     }
 
     // No watermark row means first run, so go back 7 days
