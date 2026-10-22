@@ -100,3 +100,23 @@ There's also one integration test that calls the real NVD API. I left it out of 
 
 ```bash
 ./mvnw test -Dgroups=integration
+
+## Commit convention
+
+Format: `type(scope): imperative subject`
+
+- Types: `feat`, `fix`, `test`, `docs`, `chore`, `refactor`
+- Scopes: `sync`, `scheduler`, `api`, `db`, `config`, `readme`, `build`
+- Lowercase subject, no trailing period, 72 characters max
+- Scope is always required and names a feature area, not a file
+- Tests go in their own `test(scope)` commit right after the feature
+
+Enable the check once per clone:
+
+    git config core.hooksPath .githooks
+
+Examples:
+
+    feat(sync): advance watermark only after successful run
+    test(sync): cover watermark, pagination and window clamp
+    chore(build): remove unused H2 dependency
