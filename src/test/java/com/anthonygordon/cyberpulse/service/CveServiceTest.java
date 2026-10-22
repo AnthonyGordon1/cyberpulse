@@ -196,4 +196,53 @@ class CveServiceTest {
         assertEquals(LocalDateTime.ofInstant(endCaptor.getValue(), ZoneOffset.UTC),
                 stateCaptor.getValue().getLastSuccessfulSync());
     }
+
+    /* ---------- Pagination ---------- */
+
+    private static String page(int totalResults, String... ids) {
+        StringBuilder vulnerabilities = new StringBuilder();
+        for (int i = 0; i < ids.length; i++) {
+            if (i > 0) {
+                vulnerabilities.append(",");
+            }
+            vulnerabilities.append("{ \"cve\": { \"id\": \"" + ids[i] + "\", \"published\": \"2026-09-27T14:15:07.123\","
+                    + " \"descriptions\": [ { \"lang\": \"en\", \"value\": \"desc\" } ] } }");
+        }
+        return "{ \"totalResults\": " + totalResults + ", \"vulnerabilities\": [" + vulnerabilities + "] }";
+    }
+
+    @Test
+    void syncRecentCves_fetchesEveryPage_andSavesAllCves() {
+        when(nvdClient.fetchModifiedCves(any(), any(), eq(0))).thenReturn(page(3, "CVE-2026-0001", "CVE-2026-0002"));
+        when(nvdClient.fetchModifiedCves(any(), any(), eq(2))).thenReturn(page(3, "CVE-2026-0003"));
+
+        int saved = cveService.syncRecentCves();
+
+        assertEquals(3, saved);
+        verify(cveRepository).saveAll(savedCaptor.capture());
+        assertEquals(3, savedCaptor.getValue().size());
+        verify(syncStateRepository).save(any());
+    }
+
+    @Test
+    void syncRecentCves_savesNothingAndKeepsWatermark_whenALaterPageFails() {
+        when(nvdClient.fetchModifiedCves(any(), any(), eq(0))).thenReturn(page(3, "CVE-2026-0001", "CVE-2026-0002"));
+        when(nvdClient.fetchModifiedCves(any(), any(), eq(2))).thenThrow(new RuntimeException("NVD down"));
+
+        assertThrows(RuntimeException.class, () -> cveService.syncRecentCves());
+
+        verify(cveRepository, never()).saveAll(any());
+        verify(syncStateRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRecentCves_stopsOnEmptyPage_evenIfTotalResultsIsTooHigh() {
+        when(nvdClient.fetchModifiedCves(any(), any(), eq(0))).thenReturn(page(5, "CVE-2026-0001", "CVE-2026-0002"));
+        when(nvdClient.fetchModifiedCves(any(), any(), eq(2))).thenReturn(page(5));
+
+        int saved = cveService.syncRecentCves();
+
+        assertEquals(2, saved);
+        verify(syncStateRepository).save(any());
+    }
 }
