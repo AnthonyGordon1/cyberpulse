@@ -1,10 +1,35 @@
+### Build output ###
 HELP.md
 target/
+build/
+dist/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
 
-### STS ###
+### Secrets and local config ###
+.env
+application-local.properties
+application-local.yml
+application-secrets.*
+*.pem
+*.key
+
+### Logs ###
+logs/
+
+### Claude Code ###
+.claude/settings.local.json
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### Eclipse / STS ###
 .apt_generated
 .classpath
 .factorypath
@@ -13,25 +38,14 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
-/dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
+
+### macOS ###
 .DS_Store
-.DS_Store
-.claude/settings.local.json
-.env
